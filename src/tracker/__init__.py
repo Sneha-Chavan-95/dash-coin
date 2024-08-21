@@ -1,0 +1,1 @@
+"""Main module for `block-chain` application"""
