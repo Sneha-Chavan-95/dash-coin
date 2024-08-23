@@ -1,4 +1,4 @@
-🟩⛓️‍💥🟩 Block Chain
+🟩⛓️‍💥🟩 Dash Coin
 
 This Block Chain Web Application is capable of recording Mock Monetary Transactions. This application is particulary made for educational purpose only.
 
