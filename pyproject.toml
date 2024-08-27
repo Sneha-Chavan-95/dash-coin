@@ -1,0 +1,90 @@
+[project]
+name = "dash-coin"
+version = "1.0.0"
+description = "API to support `Dash Coin` Application"
+readme = "README.md"
+requires-python = ">=3.7,<=3.12"
+keywords = ["dashcoin"]
+
+authors = [
+    {name = "Sneha Chavan", email = "snehachavanbca07@gmail.com " },
+    {name = "Parna Das", email = "parnadas19962013@cerence.com" },
+]
+
+maintainers = [
+    {name = "Sneha Chavan", email = "snehachavanbca07@gmail.com " },
+    {name = "Parna Das", email = "parnadas19962013@cerence.com" },
+]
+
+classifiers = [  
+    # Optional
+    # How mature is this project? Common values are
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 5 - Production/Stable",
+
+    # Indicate who your project is intended for
+    "Intended Audience :: GitHub user",
+    "Topic :: Environment Sanity Testing :: Automated Sanity Testing",
+
+    # Pick your license as you wish
+    #"License :: OSI Approved :: MIT License",
+
+    # Specify the Python versions you support here. In particular, ensure
+    # that you indicate you support Python 3. These classifiers are *not*
+    # checked by "pip install". See instead "python_requires" below.
+    # "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    # "Programming Language :: Python :: 3.11",
+    # "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "requests",
+]
+
+[project.urls]
+"source" = "https://github.com/Sneha-Chavan-95/dash-coin.git"
+
+[project.optional-dependencies]
+dev = [
+    "black", 
+    "flake8", 
+    "mypy", 
+    "pylint",
+    "vulture",
+]
+test = [
+    "pytest",
+    "mypy",
+    "flake8",
+    "coverage",
+    "pytest-cov",
+    "pylint",
+    "black",
+    "vulture",
+]
+
+[project.scripts]
+dashcoin = "app:main"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.vulture]
+exclude = ["*/__init__.py",]
+min_confidence = 70
+
+[tool.pylint]
+disable = ["line-too-long"]
+max-line-length = 200
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

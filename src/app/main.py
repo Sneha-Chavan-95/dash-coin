@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Body
 from fastapi.responses import JSONResponse
-
+from helper.helper import get_all_users, get_user_balance, register_new_users, request_credit_user, send_credit_user, add_user_balance
 
 app = FastAPI()
 
@@ -16,34 +16,45 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return JSONResponse(status_code = 200, content = "page_title": "Block")
+    return JSONResponse(status_code = 200, content = {"page_title": "Block"})
 	
 @app.post("/register")
-def register_new_user():
-	status, users_dict = register_new_users()
-	return JSONResponse(status_code = status, content = users_dict)
+def register_new_user(email:str = Body(default="", embed=True),name:str= Body(default="", embed=True), password:str = Body(default="", embed=True))-> JSONResponse:
+    """API function
 
-@app.get("/balance")
-def get_balance():
+    Args:
+        email (str, optional): _description_. Defaults to Body(default="", embed=True).
+        name (str, optional): _description_. Defaults to Body(default="", embed=True).
+        password (str, optional): _description_. Defaults to Body(default="", embed=True).
+
+    Returns:
+        JSONResponse: _description_
+    """
+    status, users_dict = register_new_users(email,name,password)
+    return JSONResponse(status_code = status, content = users_dict)
+
+@app.get("/balance/{token}")
+def get_balance(token:str= Body(default="", embed=True)):
 	status, user_dict = get_user_balance(token)
 	return JSONResponse(status_code= status, content = user_dict)
 
 @app.get("/users/{token}")
-def get_users():
+def get_users(token:str= Body(default="", embed=True)):
 	status, users_dict = get_all_users(token)
 	return JSONResponse(status_code = status, content = users_dict)
 
 @app.post("/send")
-def send_credit(sender,receiver,amount,token):
-	status,transaction = send_credit_user(sender: str = Body(default="", embed=True), receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
+def send_credit(receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True)):
+	status,transaction = send_credit_user(receiver,amount,token)
 	return JSONResponse(status_code = status, content = transaction)
 
-@app.post("/")
-def update_balance(user_name,amount,token):
-	status,transaction = update_user_balance(user_name: str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
+@app.post("/recharge")
+def recharge(amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True)):
+	status,transaction = add_user_balance(amount,token)
 	return JSONResponse(status_code = status, content = transaction)
 	
-@app.post("/")
-def request_credit(sender,receiver,amount,token):
-	status,transaction = request_credit_user(sender: str = Body(default="", embed=True), receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
+@app.post("/transactions")
+def transactions(token:str= Body(default="", embed=True)):
+	status,transaction = get_all_transactions(token)
 	return JSONResponse(status_code = status, content = transaction)
+
