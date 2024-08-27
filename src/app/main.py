@@ -35,7 +35,7 @@ def get_users():
 
 @app.post("/send")
 def send_credit(sender,receiver,amount,token):
-	status,transaction = send_credit_user(sender: str = Body(default="", embed=True),receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
+	status,transaction = send_credit_user(sender: str = Body(default="", embed=True), receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
 	return JSONResponse(status_code = status, content = transaction)
 
 @app.post("/")
@@ -43,6 +43,7 @@ def update_balance(user_name,amount,token):
 	status,transaction = update_user_balance(user_name: str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
 	return JSONResponse(status_code = status, content = transaction)
 	
-
-
-	
+@app.post("/")
+def request_credit(sender,receiver,amount,token):
+	status,transaction = request_credit_user(sender: str = Body(default="", embed=True), receiver :str = Body(default="", embed=True),amount :float = Body(default=0.0, embed=True),token: str = Body(default="", embed=True))
+	return JSONResponse(status_code = status, content = transaction)
