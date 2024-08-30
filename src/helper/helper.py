@@ -2,22 +2,54 @@
 
 import sqlite3
 import random
+from uuid import uuid4
+import hashlib
+from datetime import datetime
 
-db_path = ("dashcoin.db",)
+db_path = "dashcoin.db"
 conn = sqlite3.connect(db_path)
 with conn:
     conn.execute("""CREATE TABLE IF NOT EXISTS users (email TEXT Primary Key,name TEXT, password TEXT, active TEXT)""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS tokens (token TEXT Primary Key, email TEXT, valid DATETIME)""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS balances (email TEXT Primary Key, balance DECIMAL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS tokens (email TEXT Primary Key,token TEXT UNIQUE, valid DATETIME)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS balances (email TEXT Primary Key, balance DECIMAL , block_id TEXT)""")
 
 
 # ! API helper functions
+def register_new_user(email: str, name: str, password: str) -> tuple[int, dict]:
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    with connection:
+        cursor.execute("INSERT INTO users(email,name,password) VALUES(?,?,?)", (email, name, generate_password_salt(password)))
+        connection.commit()
+        cursor.execute("INSERT INTO balances(email,balance,block_id) VALUES(?,?,?)", (email, 0.0, 0))
+        connection.commit()
+    return (
+        201,
+        {
+            "message": f"User with email - {email} and {name} registered successfully",
+        },
+    )
+
+
+def authenticate_user(email: str, password: str) -> tuple[int, dict]:
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        # cursor.execute('SELECT count(*) FROM users WHERE email="?" AND password ="?" AND active ="Y"', (email, generate_password_salt(password)))
+        cursor.execute("SELECT count(*) FROM users WHERE email=? AND password=?", (email, generate_password_salt(password)))
+    if bool(cursor.fetchone()):
+        return (200, {"message": f"{create_token(email)}"})
+
+
 def get_all_users(token: str) -> tuple[int, list[str]]:
     if get_user_against_token(token):
-        cursor = conn.cursor()
-        cursor.execute('SELECT email FROM users WHERE active="Y"')
-        users = cursor.fetchall()[0]
-        return (200, users)
+        connection = sqlite3.connect(db_path)
+        with connection:
+            cursor = connection.cursor()
+            # cursor.execute('SELECT email FROM users WHERE active="Y"')
+            cursor.execute("SELECT email FROM users")
+            users = cursor.fetchall()[0]
+            return (200, users)
     return (403, [])
 
 
@@ -31,27 +63,37 @@ def send_credit_user(receiver: str, amount: float, token: str) -> tuple[int, dic
     return (405, {})
 
 
-def register_new_users(email: str, name: str, password: str) -> tuple[int, dict]:
-    cursor = conn.cursor()
-    with conn:
-        cursor.execute("INSERT INTO users(email,name,password) VALUES(?,?,?)", email, name, password)
-        conn.commit()
-    return (201, {})
-
-
 def get_user_balance(token: str) -> tuple[int, float]:
-    cursor = conn.cursor()
-    user: str = get_user_against_token(token)
-    balance: float = cursor.execute('SELECT balance from balances WHERE user ="?"', user)
-    return (200, balance)
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+    status, balance = 403, 0.0
+    try:
+        user_status, user = get_user_against_token(token)
+        if user_status != 200:
+            raise ValueError("No user found against token - {token}")
+        status, balance = 200, cursor.execute("SELECT balance from balances WHERE email=?", (user["message"],))
+    except Exception:
+        return (status, balance)
+    return (status, balance)
 
 
 def add_user_balance(amount: float, token: str) -> tuple[int, float]:
-    cursor = conn.cursor()
-    user: str = get_user_against_token(token)
-    new_balance = get_user_balance(token) + amount
-    cursor.execute('UPDATE balances SET balance= "?" WHERE email= "?"', new_balance, user)
-    return (200, 0.0)
+    status, new_balance = 403, 0.0
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        try:
+            user: str = get_user_against_token(token)
+            if not user:
+                raise ValueError("No user found against token - {token}")
+            new_balance = get_user_balance(token)[1] + amount
+            cursor.execute("UPDATE balances SET balance=? WHERE email=?", (new_balance, user))
+            connection.commit()
+            status, new_balance = get_user_balance(token)
+        except Exception:
+            return (status, new_balance)
+        return (status, new_balance)
 
 
 def request_credit_user(sender: str, receiver: str, amount: float, token: str) -> tuple[int, dict]:
@@ -65,19 +107,32 @@ def get_all_transactions(token: str) -> tuple[int, list[dict]]:
 # ! Session management functions
 
 
-def create_token() -> str: ...
+def create_token(email) -> tuple[int, dict]:
+    token = str(uuid4())
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        # cursor.execute("INSERT INTO tokens(email,token,valid) VALUES(?,?,?)", (email, token, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cursor.execute("INSERT INTO tokens(email,token,valid) VALUES(?,?,?)", (email, token, datetime.now()))
+        connection.commit()
+    return (201, {"message": token})
 
 
-def get_user_against_token(token: str) -> str:
-    cursor = conn.cursor()
-    cursor.execute('SELECT email FROM tokens WHERE token="?"', token)
-    email: str = cursor.fetchone()[0]
-    return email if email else ""
+def get_user_against_token(token: str) -> tuple[int, dict]:
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT email FROM tokens WHERE token=?", (token,))
+        email = cursor.fetchone()
+        return (200, {"message": email}) if email else (401, {"message": f"No user Found against token - {token}"})
 
 
 def is_user_valid(email: str) -> bool:
-    cursor = conn.cursor()
-    cursor.execute('SELECT count(*) FROM users WHERE email="?" AND active="Y"', email)
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        # cursor.execute('SELECT count(*) FROM users WHERE email="?" AND active="Y"', email)
+        cursor.execute("SELECT count(*) FROM users WHERE email=?", (email))
     return bool(cursor.fetchone())
 
 
@@ -85,13 +140,21 @@ def generate_otp(length: int = 4) -> str:
     return f'{random.randint(0,int("9" * length)):0{length}}'
 
 
-def generate_password_salt(password: str) -> str: ...
-
-
-def authenticate_user(email: str, password: str) -> bool: ...
+def generate_password_salt(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def notify_user(email: str, body: str) -> bool: ...
+
+
+def clear_token(token: str) -> tuple[int, dict]:
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM tokens WHERE token=?", (token))
+        connection.commit()
+    if not bool(cursor.fetchone()):
+        return (200, {"message": f"Token - {token} is deleted successfully"})
 
 
 # ! Database functions
