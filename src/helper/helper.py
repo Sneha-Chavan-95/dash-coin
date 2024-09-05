@@ -12,6 +12,8 @@ with conn:
     conn.execute("""CREATE TABLE IF NOT EXISTS users (email TEXT Primary Key,name TEXT, password TEXT, active TEXT)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS tokens (email TEXT Primary Key,token TEXT UNIQUE, valid DATETIME)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS balances (email TEXT Primary Key, balance DECIMAL , block_id TEXT)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS transactions(transaction_id TEXT,sender TEXT,receiver TEXT,amount DECIMAL,transaction_time DATETIME) """)
+    conn.execute("""CREATE TABLE IF NOT EXISTS block-chain (index INT, hash TEXT, prev_hash TEXT,transaction_id TEXT,nounce INT )""")
 
 
 # ! API helper functions
@@ -37,24 +39,66 @@ def authenticate_user(email: str, password: str) -> tuple[int, dict]:
         cursor = connection.cursor()
         # cursor.execute('SELECT count(*) FROM users WHERE email="?" AND password ="?" AND active ="Y"', (email, generate_password_salt(password)))
         cursor.execute("SELECT count(*) FROM users WHERE email=? AND password=?", (email, generate_password_salt(password)))
-    if bool(cursor.fetchone()):
+    if bool(cursor.fetchone()[0]):
         return (200, {"message": f"{create_token(email)}"})
 
 
+def get_user_balance(token: str) -> tuple[int, float]:
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+    status, content = 403, {"message": 0.0}
+    try:
+        email = get_email_against_token(token)
+
+        if not email:
+            raise ValueError("No user found against token - {token}")
+
+        balance = cursor.execute("SELECT balance from balances WHERE email=?", (email,))
+        status, content = 200, {"message": balance}
+    except:
+        return (status, content)
+    return (status, content)
+
+
+def get_username_against_token(token: str) -> tuple[int, float]:
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+    status, content = 403, {"message": ""}
+    try:
+        email = get_email_against_token(token)
+
+        if not email:
+            raise ValueError("No user found against token - {token}")
+
+        username = cursor.execute("SELECT name FROM users WHERE email=?", (email,)).fetchone()[0]
+        status, content = 200, {"message": username}
+    except:
+        return (status, content)
+    return (status, content)
+
+
 def get_all_users(token: str) -> tuple[int, list[str]]:
-    if get_user_against_token(token):
-        connection = sqlite3.connect(db_path)
-        with connection:
-            cursor = connection.cursor()
-            # cursor.execute('SELECT email FROM users WHERE active="Y"')
-            cursor.execute("SELECT email FROM users")
-            users = cursor.fetchall()[0]
-            return (200, users)
-    return (403, [])
+    connection = sqlite3.connect(db_path)
+    with connection:
+        cursor = connection.cursor()
+    status, content = 403, {"message": []}
+    try:
+        email = get_email_against_token(token)
+
+        if not email:
+            raise ValueError("No user found against token - {token}")
+
+        users = cursor.execute("SELECT email FROM users").fetchall()[0]
+        status, content = 200, {"message": users}
+    except:
+        return (status, content)
+    return (status, content)
 
 
 def send_credit_user(receiver: str, amount: float, token: str) -> tuple[int, dict]:
-    sender = get_user_against_token(token)
+    sender = get_email_against_token(token)
     if sender and is_user_valid(receiver) and get_user_balance(token) >= amount:
         # Create transaction
         # Create block
@@ -63,28 +107,13 @@ def send_credit_user(receiver: str, amount: float, token: str) -> tuple[int, dic
     return (405, {})
 
 
-def get_user_balance(token: str) -> tuple[int, float]:
-    connection = sqlite3.connect(db_path)
-    with connection:
-        cursor = connection.cursor()
-    status, balance = 403, 0.0
-    try:
-        user_status, user = get_user_against_token(token)
-        if user_status != 200:
-            raise ValueError("No user found against token - {token}")
-        status, balance = 200, cursor.execute("SELECT balance from balances WHERE email=?", (user["message"],))
-    except Exception:
-        return (status, balance)
-    return (status, balance)
-
-
 def add_user_balance(amount: float, token: str) -> tuple[int, float]:
     status, new_balance = 403, 0.0
     connection = sqlite3.connect(db_path)
     with connection:
         cursor = connection.cursor()
         try:
-            user: str = get_user_against_token(token)
+            user: str = get_email_against_token(token)
             if not user:
                 raise ValueError("No user found against token - {token}")
             new_balance = get_user_balance(token)[1] + amount
@@ -118,13 +147,13 @@ def create_token(email) -> tuple[int, dict]:
     return (201, {"message": token})
 
 
-def get_user_against_token(token: str) -> tuple[int, dict]:
+def get_email_against_token(token: str) -> str:
     connection = sqlite3.connect(db_path)
     with connection:
         cursor = connection.cursor()
         cursor.execute("SELECT email FROM tokens WHERE token=?", (token,))
-        email = cursor.fetchone()
-        return (200, {"message": email}) if email else (401, {"message": f"No user Found against token - {token}"})
+        email = cursor.fetchone()[0]
+        return ({"message": email}) if email else (401, {"message": f"No user Found against token - {token}"})
 
 
 def is_user_valid(email: str) -> bool:

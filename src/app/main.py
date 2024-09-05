@@ -34,18 +34,26 @@ def read_root():
 
 @app.post("/register")
 def register_user(email: str = Body(default="", embed=True), name: str = Body(default="", embed=True), password: str = Body(default="", embed=True)) -> JSONResponse:
-    """API function
-
-    Args:
-        email (str, optional): _description_. Defaults to Body(default="", embed=True).
-        name (str, optional): _description_. Defaults to Body(default="", embed=True).
-        password (str, optional): _description_. Defaults to Body(default="", embed=True).
-
-    Returns:
-        JSONResponse: _description_
-    """
     status, users_dict = register_new_user(email, name, password)
     return JSONResponse(status_code=status, content=users_dict)
+
+
+@app.post("/create_token")
+def create(email: str = Body(default="", embed=True)):
+    status, transaction = create_token(email)
+    return JSONResponse(status_code=status, content=transaction)
+
+
+@app.post("/authenticate")
+def authenticate(email: str = Body(default="", embed=True), password: str = Body(default="", embed=True)):
+    status, transaction = authenticate_user(email, password)
+    return JSONResponse(status_code=status, content=transaction)
+
+
+@app.get("/get_username/{token}")
+def get_username(token: str):
+    status, transaction = get_user_against_token(token)
+    return JSONResponse(status_code=status, content=transaction)
 
 
 @app.get("/balance/{token}")
@@ -78,25 +86,7 @@ def transactions(token: str = Body(default="", embed=True)):
     return JSONResponse(status_code=status, content=transaction)
 
 
-@app.post("/authenticate")
-def authenticate(email: str = Body(default="", embed=True), password: str = Body(default="", embed=True)):
-    status, transaction = authenticate_user(email, password)
-    return JSONResponse(status_code=status, content=transaction)
-
-
 @app.post("/clear_token")
 def clear(token: str = Body(default="", embed=True)):
     status, transaction = clear_token(token)
-    return JSONResponse(status_code=status, content=transaction)
-
-
-@app.post("/create_token")
-def create(email: str = Body(default="", embed=True)):
-    status, transaction = create_token(email)
-    return JSONResponse(status_code=status, content=transaction)
-
-
-@app.get("/get_username/{token}")
-def get_username(token: str):
-    status, transaction = get_user_against_token(token)
     return JSONResponse(status_code=status, content=transaction)
