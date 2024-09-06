@@ -6,19 +6,19 @@ from uuid import uuid4
 import hashlib
 from datetime import datetime
 
-db_path = "dashcoin.db"
-conn = sqlite3.connect(db_path)
+from constants.filepaths import DB_PATH
+
+conn = sqlite3.connect(str(DB_PATH))
 with conn:
     conn.execute("""CREATE TABLE IF NOT EXISTS users (email TEXT Primary Key,name TEXT, password TEXT, active TEXT)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS tokens (email TEXT Primary Key,token TEXT UNIQUE, valid DATETIME)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS balances (email TEXT Primary Key, balance DECIMAL , block_id TEXT)""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS transactions(transaction_id TEXT,sender TEXT,receiver TEXT,amount DECIMAL,transaction_time DATETIME) """)
-    conn.execute("""CREATE TABLE IF NOT EXISTS block-chain (index INT, hash TEXT, prev_hash TEXT,transaction_id TEXT,nounce INT )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS transactions(transaction_id TEXT,sender TEXT,receiver TEXT,amount DECIMAL,transaction_time DATETIME, note TEXT) """)
 
 
 # ! API helper functions
 def register_new_user(email: str, name: str, password: str) -> tuple[int, dict]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
     with connection:
         cursor.execute("INSERT INTO users(email,name,password) VALUES(?,?,?)", (email, name, generate_password_salt(password)))
@@ -34,7 +34,7 @@ def register_new_user(email: str, name: str, password: str) -> tuple[int, dict]:
 
 
 def authenticate_user(email: str, password: str) -> tuple[int, dict]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         # cursor.execute('SELECT count(*) FROM users WHERE email="?" AND password ="?" AND active ="Y"', (email, generate_password_salt(password)))
@@ -44,7 +44,7 @@ def authenticate_user(email: str, password: str) -> tuple[int, dict]:
 
 
 def get_user_balance(token: str) -> tuple[int, float]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
     status, content = 403, {"message": 0.0}
@@ -62,7 +62,7 @@ def get_user_balance(token: str) -> tuple[int, float]:
 
 
 def get_username_against_token(token: str) -> tuple[int, float]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
     status, content = 403, {"message": ""}
@@ -80,7 +80,7 @@ def get_username_against_token(token: str) -> tuple[int, float]:
 
 
 def get_all_users(token: str) -> tuple[int, list[str]]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
     status, content = 403, {"message": []}
@@ -109,7 +109,7 @@ def send_credit_user(receiver: str, amount: float, token: str) -> tuple[int, dic
 
 def add_user_balance(amount: float, token: str) -> tuple[int, float]:
     status, new_balance = 403, 0.0
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         try:
@@ -138,7 +138,7 @@ def get_all_transactions(token: str) -> tuple[int, list[dict]]:
 
 def create_token(email) -> tuple[int, dict]:
     token = str(uuid4())
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         # cursor.execute("INSERT INTO tokens(email,token,valid) VALUES(?,?,?)", (email, token, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
@@ -148,7 +148,7 @@ def create_token(email) -> tuple[int, dict]:
 
 
 def get_email_against_token(token: str) -> str:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         cursor.execute("SELECT email FROM tokens WHERE token=?", (token,))
@@ -157,7 +157,7 @@ def get_email_against_token(token: str) -> str:
 
 
 def is_user_valid(email: str) -> bool:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         # cursor.execute('SELECT count(*) FROM users WHERE email="?" AND active="Y"', email)
@@ -177,7 +177,7 @@ def notify_user(email: str, body: str) -> bool: ...
 
 
 def clear_token(token: str) -> tuple[int, dict]:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(DB_PATH)
     with connection:
         cursor = connection.cursor()
         cursor.execute("DELETE FROM tokens WHERE token=?", (token))
